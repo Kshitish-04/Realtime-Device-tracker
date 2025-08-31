@@ -128,6 +128,55 @@
 
 
 
+// const socket = io();
+
+// const map = L.map("map").setView([20.2961, 85.8245], 12); // Default Bhubaneswar coords
+// L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+//     attribution: "OpenStreetMap",
+// }).addTo(map);
+
+// const markers = {};
+
+// if (navigator.geolocation) {
+//     navigator.geolocation.watchPosition(
+//         (position) => {
+//             const { latitude, longitude } = position.coords;
+//             socket.emit("send-location", { latitude, longitude });
+//         },
+//         (error) => {
+//             console.error(error);
+//         },
+//         {
+//             enableHighAccuracy: true,
+//             maximumAge: 0,
+//             timeout: 5000,
+//         }
+//     );
+// }
+
+// socket.on("receive-location", (data) => {
+//     const { id, latitude, longitude } = data;
+
+//     if (markers[id]) {
+//         markers[id].setLatLng([latitude, longitude]);
+//     } else {
+//         markers[id] = L.marker([latitude, longitude], { title: `User ${id}` })
+//             .addTo(map)
+//             .bindPopup(`User: ${id}`);
+//     }
+// });
+
+// socket.on("user-disconnected", (id) => {
+//     if (markers[id]) {
+//         map.removeLayer(markers[id]);
+//         delete markers[id];
+//     }
+// });
+
+
+
+
+
 const socket = io();
 
 const map = L.map("map").setView([20.2961, 85.8245], 12); // Default Bhubaneswar coords
@@ -136,12 +185,30 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 }).addTo(map);
 
 const markers = {};
+let myMarker = null;
+let centeredOnce = false; // To avoid recentering again and again
 
 if (navigator.geolocation) {
     navigator.geolocation.watchPosition(
         (position) => {
             const { latitude, longitude } = position.coords;
             socket.emit("send-location", { latitude, longitude });
+
+            // Create/update "You are here" marker
+            if (myMarker) {
+                myMarker.setLatLng([latitude, longitude]);
+            } else {
+                myMarker = L.marker([latitude, longitude], { title: "You are here" })
+                    .addTo(map)
+                    .bindPopup("📍 You are here")
+                    .openPopup();
+            }
+
+            // Center map only once on my location (first time)
+            if (!centeredOnce) {
+                map.setView([latitude, longitude], 16);
+                centeredOnce = true;
+            }
         },
         (error) => {
             console.error(error);
@@ -156,6 +223,9 @@ if (navigator.geolocation) {
 
 socket.on("receive-location", (data) => {
     const { id, latitude, longitude } = data;
+
+    // Skip updating myself here (I already handle "You are here" above)
+    if (id === socket.id) return;
 
     if (markers[id]) {
         markers[id].setLatLng([latitude, longitude]);
